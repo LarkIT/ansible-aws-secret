@@ -1,3 +1,33 @@
 ---
 # tasks/main.yml
 # tasks file for ansible-aws-secret
+- name: Lookup KMS key info
+  aws_kms_info:
+    filters:
+      alias: "secret_kms_key_name"
+  register: kms_key_info
+
+- name: Fetch current secrets
+  command: >
+    aws secretsmanager list-secrets
+  register: current_secrets
+
+- name: Create AWS SSM SecretsManager Secret
+  command: >
+    aws secretsmanager create-secret 
+    --name "{{ secret_name | quote }}"
+    --secret-string "{{ secret_data }}"
+    --kms-key-id "{{ kms_key_info|json_query('keys[0].key_id') }}"
+  when: current_secrets.stdout|from_json|json_query(current_secret_query)|join != secret_name
+  vars: 
+    current_secret_query: "SecretList[?Name=='{{ secret_name }}'].Name"
+
+- name: Modify AWS SSM SecretsManager Secret
+  command: >
+    aws secretsmanager update-secret 
+    --secret-id "{{ secret_name }}"
+    --secret-string "{{ secret_data }}"
+    --kms-key-id "{{ kms_key_info|json_query('keys[0].key_id') }}"
+  when: current_secrets.stdout|from_json|json_query(current_secret_query)|join == secret_name
+  vars: 
+    current_secret_query: "SecretList[?Name=='{{ secret_name }}'].Name"

@@ -1,2 +1,5 @@
 ---
+# defaults/main.yml
 # defaults file for ansible-aws-secret
+secret_state: present
+secret_type: string
